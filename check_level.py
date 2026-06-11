@@ -1,9 +1,7 @@
 import os
 import base64
-import json
 import pickle
 from twilio.rest import Client
-from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
@@ -13,7 +11,6 @@ TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN  = os.environ.get("TWILIO_AUTH_TOKEN")
 TWILIO_FROM        = os.environ.get("TWILIO_FROM")
 TWILIO_TO          = os.environ.get("TWILIO_TO")
-TWILIO_FLOW_SID    = os.environ.get("TWILIO_FLOW_SID")
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
@@ -69,18 +66,16 @@ def marcar_leido(service, msg_id):
         body={"removeLabelIds": ["UNREAD"]}
     ).execute()
 
-# ─── LLAMADA VIA TWILIO ───────────────────────────────────────────
+# ─── LLAMADA DIRECTA VIA TWILIO ───────────────────────────────────
 def hacer_llamada(asunto=""):
     client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    execution = client.studio.v2.flows(TWILIO_FLOW_SID) \
-        .executions \
-        .create(
-            to=TWILIO_TO,
-            from_=TWILIO_FROM,
-            parameters={"asunto": asunto}
-        )
-    print(f"Llamada iniciada: {execution.sid}")
-    return execution.sid
+    call = client.calls.create(
+        to=TWILIO_TO,
+        from_=TWILIO_FROM,
+        twiml='<Response><Say language="es-MX">Tienes un correo nuevo de Level. Revisa tu Gmail.</Say></Response>'
+    )
+    print(f"Llamada iniciada: {call.sid}")
+    return call.sid
 
 # ─── MAIN ─────────────────────────────────────────────────────────
 def main():
