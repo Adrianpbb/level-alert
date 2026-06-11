@@ -2,7 +2,7 @@ name: Level Alert Monitor
 
 on:
   schedule:
-    - cron: '*/6 * * * *'  # cada 5 minutos
+    - cron: '*/10 * * * *'  # cada 5 minutos
   workflow_dispatch:        # también ejecutable manualmente
 
 jobs:
