@@ -1,9 +1,9 @@
 name: Level Alert Monitor
 
 on:
+  workflow_dispatch:
   schedule:
-    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'  # cada 5 minutos
-  workflow_dispatch:        # también ejecutable manualmente
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
 
 jobs:
   check-level:
