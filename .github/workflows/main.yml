@@ -27,6 +27,20 @@ jobs:
       - name: Escribir token.pickle
         run: echo '${{ secrets.GMAIL_TOKEN }}' | base64 -d > token.pickle
 
+
+
+      - name: Diagnóstico trigger
+        run: |
+          echo "Evento: ${{ github.event_name }}"
+          echo "Hora UTC:"
+          date -u
+          echo "Hora local runner:"
+          date
+
+
+
+
+
       - name: Ejecutar monitor
         env:
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
