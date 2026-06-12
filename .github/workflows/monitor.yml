@@ -3,8 +3,7 @@ name: Level Alert Monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
-
+    - cron: '*/5 * * * *'
 jobs:
   check-level:
     runs-on: ubuntu-latest
@@ -18,24 +17,28 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalar Google Chrome
-        run: |
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt-get update -q
-          sudo apt-get install -y google-chrome-stable
-
-      - name: Instalar dependencias Python
-        run: pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client twilio playwright requests
-
-      - name: Instalar Playwright Chromium
-        run: playwright install chromium --with-deps
+      - name: Instalar dependencias
+        run: pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client twilio
 
       - name: Escribir credentials.json
         run: echo '${{ secrets.GMAIL_CREDENTIALS }}' > credentials.json
 
       - name: Escribir token.pickle
-        run: echo '${{ secrets.GMAIL_TOKEN2 }}' | base64 -d > token.pickle
+        run: echo '${{ secrets.GMAIL_TOKEN }}' | base64 -d > token.pickle
+
+
+
+      - name: Diagnóstico trigger
+        run: |
+          echo "Evento: ${{ github.event_name }}"
+          echo "Hora UTC:"
+          date -u
+          echo "Hora local runner:"
+          date
+
+
+
+
 
       - name: Ejecutar monitor
         env:
@@ -43,7 +46,5 @@ jobs:
           TWILIO_AUTH_TOKEN:  ${{ secrets.TWILIO_AUTH_TOKEN }}
           TWILIO_FROM:        ${{ secrets.TWILIO_FROM }}
           TWILIO_TO:          ${{ secrets.TWILIO_TO }}
-          GMAIL_TOKEN2:       ${{ secrets.GMAIL_TOKEN2 }}
-          BOT_TOKEN:          ${{ secrets.BOT_TOKEN }}
-          CHAT_ID:            ${{ secrets.CHAT_ID }}
+          TWILIO_FLOW_SID:    ${{ secrets.TWILIO_FLOW_SID }}
         run: python check_level.py
