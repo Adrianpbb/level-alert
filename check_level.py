@@ -14,11 +14,18 @@ TWILIO_TO          = os.environ.get("TWILIO_TO")
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
+# ─── PALABRAS CLAVE DE PRECIO (filtro secundario opcional) ────────
+KEYWORDS_PRECIO = [
+    "US$ 9", "US$9", "USD 9", "USD9",
+    "€9", "9€", "9 euros", "EUR 9",
+    "desde 9", "desde US$",
+    "vuelos desde",
+]
+
 # ─── AUTENTICACIÓN GMAIL ──────────────────────────────────────────
 def get_gmail_service():
     creds = None
 
-    # En GitHub Actions: reconstruir token.pickle desde secret GMAIL_TOKEN2 (base64)
     token_b64 = os.environ.get("GMAIL_TOKEN2")
     if token_b64:
         token_bytes = base64.b64decode(token_b64)
@@ -40,22 +47,37 @@ def get_gmail_service():
 
     return build("gmail", "v1", credentials=creds)
 
-# ─── BUSCAR CORREOS DE LEVEL ──────────────────────────────────────
+# ─── OBTENER ID DE ETIQUETA ───────────────────────────────────────
+def get_label_id(service, nombre_etiqueta="LEVEL"):
+    resultado = service.users().labels().list(userId="me").execute()
+    for label in resultado.get("labels", []):
+        if label["name"].upper() == nombre_etiqueta.upper():
+            return label["id"]
+    return None
+
+# ─── BUSCAR CORREOS NO LEÍDOS CON ETIQUETA LEVEL ─────────────────
 def buscar_correos_level(service):
-    query = " OR ".join([
-        "from:no-reply@communications.flylevel.com",
-        "from:flylevel.com subject:(Vuelos desde)",
-        "from:flylevel.com (\"US$ 9\" OR \"9 euros\")",
-    ]) + " is:unread"
+    label_id = get_label_id(service, "LEVEL")
+
+    if not label_id:
+        print("⚠️  Etiqueta LEVEL no encontrada en Gmail. Usando búsqueda por remitente como fallback.")
+        query = "from:flylevel.com is:unread"
+    else:
+        print(f"✅ Etiqueta LEVEL encontrada: {label_id}")
+        query = "is:unread"
 
     print(f"Query: {query}")
 
-    result = service.users().messages().list(
-        userId="me",
-        q=query,
-        maxResults=5
-    ).execute()
+    kwargs = {
+        "userId": "me",
+        "q": query,
+        "maxResults": 10
+    }
+    if label_id:
+        kwargs["labelIds"] = [label_id, "UNREAD"]
+        kwargs.pop("q")  # con labelIds no necesitamos q para el unread
 
+    result = service.users().messages().list(**kwargs).execute()
     return result.get("messages", [])
 
 # ─── MARCAR COMO LEÍDO ───────────────────────────────────────────
