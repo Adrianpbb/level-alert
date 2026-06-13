@@ -1,7 +1,9 @@
 name: Level Scraper
 
 on:
-  workflow_dispatch:  # solo manual por ahora
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # cada 6 horas
 
 jobs:
   scraper:
@@ -24,13 +26,31 @@ jobs:
           sudo apt-get install -y google-chrome-stable
 
       - name: Instalar dependencias Python
-        run: pip install playwright requests
+        run: pip install playwright requests twilio
 
       - name: Instalar Playwright Chromium
         run: playwright install chromium --with-deps
 
+      - name: Restaurar historial
+        uses: actions/cache@v4
+        with:
+          path: historial.json
+          key: historial-level-${{ github.run_id }}
+          restore-keys: historial-level-
+
       - name: Ejecutar scraper
         env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID:   ${{ secrets.CHAT_ID }}
+          BOT_TOKEN:          ${{ secrets.BOT_TOKEN }}
+          CHAT_ID:            ${{ secrets.CHAT_ID }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN:  ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM:        ${{ secrets.TWILIO_FROM }}
+          TWILIO_TO:          ${{ secrets.TWILIO_TO }}
         run: python scraper.py
+
+      - name: Guardar historial
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: historial.json
+          key: historial-level-${{ github.run_id }}
