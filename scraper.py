@@ -1,7 +1,7 @@
 """
-Level Price Scraper v3
-- Telegram solo si min(p_ida) o min(p_vuelta) < $150
-- Historial en historial.json (commiteado al repo)
+Level Price Scraper v4
+- Telegram + Twilio SOLO si min(p_ida) o min(p_vuelta) < $150
+- historial.json commiteado al repo
 - Retry automático en meses con 0 días
 """
 import os
@@ -212,25 +212,23 @@ def find_combos(ida, vuelta):
     combos.sort(key=lambda x: x["total"])
     return combos
 
-def verificar_y_alertar(ida_prices, vuelta_prices):
+def verificar_y_alertar(ida_prices, vuelta_prices, combos):
     if not ida_prices and not vuelta_prices:
         return
 
     min_ida    = min(ida_prices.values()) if ida_prices else None
     min_vuelta = min(vuelta_prices.values()) if vuelta_prices else None
 
-    historial     = cargar_historial()
-    prev_min_ida  = historial.get("min_ida")
+    historial       = cargar_historial()
+    prev_min_ida    = historial.get("min_ida")
     prev_min_vuelta = historial.get("min_vuelta")
 
     alerta_partes = []
 
-    # IDA: baja de umbral y antes estaba sobre (o no había registro)
     if min_ida and min_ida < UMBRAL_USD:
         if prev_min_ida is None or prev_min_ida >= UMBRAL_USD:
             alerta_partes.append(f"ida ${round(min_ida)}")
 
-    # VUELTA: ídem
     if min_vuelta and min_vuelta < UMBRAL_USD:
         if prev_min_vuelta is None or prev_min_vuelta >= UMBRAL_USD:
             alerta_partes.append(f"vuelta ${round(min_vuelta)}")
@@ -238,56 +236,56 @@ def verificar_y_alertar(ida_prices, vuelta_prices):
     if alerta_partes:
         texto = " y ".join(alerta_partes)
         log(f"🚨 UMBRAL ALCANZADO: {texto}")
+
+        # Llamada Twilio
         hacer_llamada(f"Alerta Level. Pasaje de {texto} dólares disponible. Revisa Telegram.")
-        send_telegram(f"🚨 ALERTA PRECIO\nPasaje {texto} USD — bajo el umbral de ${UMBRAL_USD}!")
+
+        # Telegram con alerta + top 10
+        best = combos[0] if combos else None
+        lines = [
+            f"🚨 ALERTA PRECIO LEVEL",
+            f"🛫 Min ida:    ${round(min_ida) if min_ida else 'N/A'} USD",
+            f"🛬 Min vuelta: ${round(min_vuelta) if min_vuelta else 'N/A'} USD",
+            f"⚠️ Bajó del umbral de ${UMBRAL_USD} USD",
+            "",
+        ]
+        if best:
+            lines += [
+                "🏆 MEJOR COMBO:",
+                f"  IDA:    {best['ida']}",
+                f"  VUELTA: {best['vuelta']}",
+                f"  Noches: {best['noches']}",
+                f"  Total:  ${best['total']} USD",
+                "",
+                f"📊 TOP {min(TOP_N, len(combos))} COMBOS:",
+            ]
+            for i, c in enumerate(combos[:TOP_N], 1):
+                lines.append(f"  {i:>2}. {c['ida']} → {c['vuelta']} ({c['noches']}n) = ${c['total']}")
+
+        send_telegram("\n".join(lines))
     else:
         log(f"Sin alerta. min_ida=${round(min_ida) if min_ida else 'N/A'} min_vuelta=${round(min_vuelta) if min_vuelta else 'N/A'}")
 
-    # Guardar historial actualizado
-    historial["min_ida"]     = round(min_ida) if min_ida else None
-    historial["min_vuelta"]  = round(min_vuelta) if min_vuelta else None
-    historial["updated_at"]  = datetime.now().isoformat()
+    # Guardar historial
+    historial["min_ida"]    = round(min_ida) if min_ida else None
+    historial["min_vuelta"] = round(min_vuelta) if min_vuelta else None
+    historial["updated_at"] = datetime.now().isoformat()
     guardar_historial(historial)
+    log(f"Historial guardado: {historial}")
 
 # ─── MAIN ─────────────────────────────────────────────────────────
 def main():
-    log("=== Level Scraper v3 ===")
+    log("=== Level Scraper v4 ===")
     ida, vuelta = scrape_precios()
     log(f"IDA: {len(ida)} días | VUELTA: {len(vuelta)} días")
 
     if not ida and not vuelta:
         return
 
-    verificar_y_alertar(ida, vuelta)
-
     combos = find_combos(ida, vuelta)
     log(f"{len(combos)} combinaciones encontradas")
 
-    if not combos:
-        log("Sin combinaciones.")
-        return
-
-    best = combos[0]
-    min_ida    = round(min(ida.values())) if ida else "N/A"
-    min_vuelta = round(min(vuelta.values())) if vuelta else "N/A"
-
-    lines = [
-        "✈️ LEVEL SCL↔BCN",
-        f"🛫 Min ida:    ${min_ida} USD",
-        f"🛬 Min vuelta: ${min_vuelta} USD",
-        "",
-        "🏆 MEJOR COMBO:",
-        f"  IDA:    {best['ida']}",
-        f"  VUELTA: {best['vuelta']}",
-        f"  Noches: {best['noches']}",
-        f"  Total:  ${best['total']} USD",
-        "",
-        f"📊 TOP {min(TOP_N, len(combos))} COMBOS:",
-    ]
-    for i, c in enumerate(combos[:TOP_N], 1):
-        lines.append(f"  {i:>2}. {c['ida']} → {c['vuelta']} ({c['noches']}n) = ${c['total']}")
-
-    send_telegram("\n".join(lines))
+    verificar_y_alertar(ida, vuelta, combos)
 
 if __name__ == "__main__":
     main()
