@@ -3,11 +3,13 @@ name: Level Scraper
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'  # cada 6 horas, ajustar con cron-job.org
+    - cron: '0 */6 * * *'
 
 jobs:
   scraper:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repo
