@@ -1,0 +1,28 @@
+name: ICETEX Becas Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/20 * * * *'
+
+jobs:
+  check-icetex:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install requests beautifulsoup4
+
+      - name: Ejecutar scraper
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID:   ${{ secrets.CHAT_ID }}
+        run: python icetex_scraper.py
